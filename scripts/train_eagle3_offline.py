@@ -331,8 +331,8 @@ def main():
                     eval_plosses[i] + [plosses[i].item()] for i in range(len(plosses))
                 ]
 
-            for i in range(len(epoch_acces)):
-                acc_i = torch.tensor(epoch_acces[i]).cuda().mean()
+            for i in range(len(eval_acces)):
+                acc_i = torch.tensor(eval_acces[i]).cuda().mean()
                 dist.all_reduce(acc_i)
                 acc_i = acc_i / dist.get_world_size()
                 acc_i = acc_i.item()
@@ -342,8 +342,8 @@ def main():
                     f"Eval Epoch [{epoch + 1}/{args.num_epochs}], position {i},  Acc: {acc_i:.2f}"
                 )
 
-            for i in range(len(epoch_plosses)):
-                loss_i = torch.tensor(epoch_plosses[i]).cuda().mean()
+            for i in range(len(eval_plosses)):
+                loss_i = torch.tensor(eval_plosses[i]).cuda().mean()
                 dist.all_reduce(loss_i)
                 loss_i = loss_i / dist.get_world_size()
                 loss_i = loss_i.item()
