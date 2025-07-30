@@ -8,6 +8,10 @@
 
 <!-- Describe the changes made in this PR. -->
 
+## Related Issues
+
+<!-- Link to any related issues here. e.g. "Fixes #123" or "Closes #456" -->
+
 ## Accuracy Test
 
 <!-- If this PR affects model-side code (e.g., kernels, model architecture), please provide accuracy test results. Ref: https://docs.sglang.ai/references/accuracy_evaluation.html -->
