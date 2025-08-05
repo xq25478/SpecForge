@@ -1,10 +1,11 @@
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
 from typing import Dict
 
-from datasets import load_dataset
+from datasets import Dataset, load_dataset
 from tqdm import tqdm
 
 """
@@ -34,7 +35,7 @@ def parse_args():
     parser.add_argument(
         "--dataset",
         type=str,
-        choices=["ultrachat", "sharegpt", "opc"],
+        choices=["ultrachat", "sharegpt", "opc", "perfect-blend"],
         help="The demo dataset to quickly run the training for speculative decoding",
     )
     parser.add_argument(
@@ -108,7 +109,10 @@ def load_dataset_from_path(data_path: Path):
     return ds
 
 
-import hashlib
+def add_id(dataset: Dataset):
+    # add a label index to the dataset
+    dataset = dataset.map(lambda x, i: {"id": i}, with_indices=True)
+    return dataset
 
 
 def process_opc_sft_stage1(row) -> Dict:
@@ -140,6 +144,10 @@ def main():
             "OpenCoder-LLM/opc-sft-stage1", "largescale_diverse_instruct"
         )["train"]
         proc_fn = process_opc_sft_stage1
+    elif args.dataset == "perfect-blend":
+        ds = load_dataset("mlabonne/open-perfectblend")["train"]
+        ds = add_id(ds)
+        proc_fn = process_sharegpt_row  # same format
     else:
         raise ValueError(
             f"This script only supports ultrachat_200k and sharegpt datasets for demo purpose, if you wish to use other datasets, please modify this script."
