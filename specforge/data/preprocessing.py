@@ -33,6 +33,7 @@ from transformers import PreTrainedTokenizer
 
 from specforge.utils import padding
 
+from .parse import GeneralParser, HarmonyParser
 from .template import TEMPLATE_REGISTRY, ChatTemplate
 
 # define a type called conversation
@@ -64,75 +65,23 @@ def preprocess_conversations(
             - loss_mask: List of loss masks indicating which tokens should contribute to the loss.
             - attention_mask: List of attention masks.
     """
-    system_prompt = chat_template.system_prompt
-    user_message_separator = (
-        f"{chat_template.end_of_turn_token}{chat_template.user_header}"
-    )
-    assistant_message_separator = (
-        f"{chat_template.end_of_turn_token}{chat_template.assistant_header}"
-    )
 
     # prepare result
     results = {"input_ids": [], "loss_mask": [], "attention_mask": []}
 
+    if chat_template.parser_type == "general":
+        parser = GeneralParser(tokenizer, chat_template)
+    elif chat_template.parser_type == "openai-harmony":
+        parser = HarmonyParser(tokenizer, chat_template)
+    else:
+        raise ValueError(f"Invalid parser type: {chat_template.parser_type}")
+
     for source in conversations:
-        messages = [{"role": "system", "content": system_prompt}]
         if not source:
             # if the source is None, skip it
             continue
 
-        if source[0]["role"] != "user":
-            # if the first message is not from user, skip it
-            source = source[1:]
-
-        convroles = ["user", "assistant"]
-        for j, sentence in enumerate(source):
-            role = sentence["role"]
-            assert role == convroles[j % 2], f"unexpected role {role}"
-            messages.append({"role": role, "content": sentence["content"]})
-
-        conversation = tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=False,
-        )
-
-        if not tokenizer.pad_token_id:
-            tokenizer.pad_token_id = tokenizer.unk_token_id
-
-        encoding = tokenizer(
-            conversation,
-            return_offsets_mapping=True,
-            max_length=max_length,
-            truncation=True,
-            return_tensors="pt",
-            add_special_tokens=False,
-        )
-        input_ids = encoding.input_ids[0]
-        offsets = encoding.offset_mapping[0]
-        loss_mask = torch.zeros(len(input_ids), dtype=torch.long)
-
-        # Find spans of assistant responses using regex
-        assistant_pattern = (
-            re.escape(assistant_message_separator)
-            + r"(.*?)(?="
-            + re.escape(user_message_separator)
-            + "|$)"
-        )
-        for match in re.finditer(assistant_pattern, conversation, re.DOTALL):
-            # Assistant response text span (excluding assistant_header itself)
-            assistant_start_char = match.start(1)
-            assistant_end_char = match.end(1)
-
-            # Mark tokens overlapping with assistant response
-            for idx, (token_start, token_end) in enumerate(offsets):
-                # Token is part of the assistant response span
-                if token_end <= assistant_start_char:
-                    continue  # token before assistant text
-                if token_start > assistant_end_char:
-                    continue  # token after assistant text
-                loss_mask[idx] = 1
-
+        input_ids, loss_mask = parser.parse(source, max_length)
         results["input_ids"].append(input_ids[None, :])
         results["loss_mask"].append(loss_mask[None, :])
         results["attention_mask"].append(torch.ones_like(loss_mask)[None, :])

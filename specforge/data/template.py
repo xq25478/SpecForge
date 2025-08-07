@@ -15,10 +15,11 @@ class ChatTemplate(BaseModel):
         end_of_turn_token(str): The end token of a turn of conversation.
     """
 
-    assistant_header: str
-    user_header: str
-    system_prompt: str
-    end_of_turn_token: str
+    assistant_header: str | None
+    user_header: str | None
+    system_prompt: str | None
+    end_of_turn_token: str | None
+    parser_type: str = "general"
 
 
 class TemplateRegistry:
@@ -117,9 +118,10 @@ TEMPLATE_REGISTRY.register(
 TEMPLATE_REGISTRY.register(
     name="gpt-oss",
     template=ChatTemplate(
-        assistant_header="<|start|>assistant<|channel|>final<|message|>",
-        user_header="<|start|>user<|message|>",
-        system_prompt="You are ChatGPT, a large language model trained by OpenAI.\nKnowledge cutoff: 2024-06\nCurrent date: 2025-08-05\n\nReasoning: medium\n\n# Valid channels: analysis, commentary, final. Channel must be included for every message.",
-        end_of_turn_token="<|end|>",
+        assistant_header=None,  # the headers are not applicable to openai-harmony's channel tags
+        user_header=None,
+        system_prompt=None,
+        end_of_turn_token=None,
+        parser_type="openai-harmony",
     ),
 )
