@@ -196,3 +196,6 @@ outputs/
 wandb/
 .idea
 .vscode/
+
+# Ant-Pipeline
+*.ant_train_log
