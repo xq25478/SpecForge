@@ -13,6 +13,7 @@ from transformers import (
     PretrainedConfig,
     Qwen3Config,
     Qwen3MoeConfig,
+    Qwen3Config,
     modeling_utils,
 )
 
@@ -22,6 +23,7 @@ from .draft.llama3_eagle import LlamaForCausalLMEagle3
 from .target.llama4 import Llama4ForCausalLM
 from .target.qwen3 import Qwen3ForCausalLM
 from .target.qwen3_moe import Qwen3MoeForCausalLM
+from .target.qwen3 import Qwen3ForCausalLM
 
 
 class AutoEagle3DraftModel(AutoModelForCausalLMBase):
