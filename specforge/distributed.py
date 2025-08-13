@@ -1,4 +1,5 @@
 from datetime import timedelta
+import os
 
 import torch
 import torch.distributed as dist
@@ -27,13 +28,15 @@ def init_distributed(timeout: int = 10, tp_size: int = 1):
         tp_size(int): The degree of tensor parallelism
     """
     dist.init_process_group(backend="nccl", timeout=timedelta(minutes=timeout))
-    local_rank = dist.get_rank() % torch.cuda.device_count()
+    # local_rank = dist.get_rank() % torch.cuda.device_count()
+    local_rank = int(os.environ.get("LOCAL_RANK", 0))
     torch.cuda.set_device(local_rank)
     print_with_rank(f"bind to device {local_rank}")
 
     # initialize sub groups
     rank = dist.get_rank()
     world_size = dist.get_world_size()
+    print(f"RANK={os.environ.get('RANK')}, LOCAL_RANK={os.environ.get('LOCAL_RANK')}, WORLD_SIZE={os.environ.get('WORLD_SIZE')}")
     dp_size = world_size // tp_size
     assert world_size == tp_size * dp_size, "world size must be divisible by tp size"
     global _TP_GROUP, _DP_GROUP
