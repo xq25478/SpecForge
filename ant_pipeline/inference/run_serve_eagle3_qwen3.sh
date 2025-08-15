@@ -50,6 +50,7 @@ else
       --port 9122 \
       --host 127.0.0.1 \
       --backend pytorch \
+$0
       --max_batch_size 16 \
       --max_num_tokens 8192 \
   )
