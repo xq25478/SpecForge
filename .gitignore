@@ -199,3 +199,4 @@ wandb/
 
 # Ant-Pipeline
 *.ant_train_log
+logs/
