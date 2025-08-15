@@ -8,7 +8,7 @@ import wandb
 from accelerate.utils import set_seed
 from datasets import load_dataset
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp import MixedPrecision, ShardingStrategy, StateDictType
+from torch.distributed.fsdp import MixedPrecision, ShardingStrategy, StateDictType, BackwardPrefetch
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -23,7 +23,7 @@ from specforge.data import (
     generate_vocab_mapping_file,
     prepare_dp_dataloaders,
 )
-from specforge.distributed import destroy_distributed, get_dp_group, init_distributed
+from specforge.distributed import destroy_distributed, get_dp_group, init_distributed, get_tp_group, get_shard_group, get_replicate_group
 from specforge.lr_scheduler import CosineAnnealingWarmupLR
 from specforge.utils import (
     get_last_checkpoint,
@@ -31,7 +31,6 @@ from specforge.utils import (
     rank_0_priority,
     validate_wandb_args,
 )
-
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train Eagle3 with online data")
@@ -65,7 +64,8 @@ def parse_args():
     parser.add_argument("--chat-template", type=str, default="llama3")
 
     # distributed training
-    parser.add_argument("--tp-size", type=int, default=1)
+    parser.add_argument("--draft-model-tp-size", type=int, default=1)
+    parser.add_argument("--target-model-tp-size", type=int, default=1)
 
     # other args
     parser.add_argument("--cache-key", type=str, default=None)
@@ -115,7 +115,7 @@ def main():
     # initialize
     parser, args = parse_args()
     set_seed(args.seed)
-    init_distributed(timeout=args.dist_timeout, tp_size=args.tp_size)
+    init_distributed(timeout=args.dist_timeout, tp_size=args.draft_model_tp_size)
     print_with_rank("Initialized distributed environment")
 
     # Validate wandb arguments
@@ -132,8 +132,8 @@ def main():
         print_on_rank0(f"Last checkpoint detected: {draft_model_last_checkpoint}")
 
     # build target and draft model
-    if args.tp_size > 1:
-        # to avoid CPU RAM OOM, we directly init the model on CUDA
+    if args.target_model_tp_size > 1:
+    # to avoid CPU RAM OOM, we directly init the model on CUDA
         target_model = AutoDistributedTargetModel.from_pretrained(
             pretrained_model_name_or_path=args.target_model_path,
             torch_dtype=torch.bfloat16,
@@ -150,6 +150,7 @@ def main():
             .eval()
             .cuda()
         )
+
     print_with_rank("Initialized target model")
     # load model with resume
     draft_model_config = AutoDraftModelConfig.from_file(args.draft_model_config)
@@ -240,6 +241,7 @@ def main():
         attention_backend=args.attention_backend,
     )
     # eagle3_model = DDP(eagle3_model, find_unused_parameters=True)
+    # _SHARD_GROUP, _REPLICATE_GROUP = init_hybrid_groups(args.tp_size)
     eagle3_model = FSDP(
         eagle3_model,
         use_orig_params=True,
@@ -247,9 +249,14 @@ def main():
             param_dtype=torch.bfloat16,
             buffer_dtype=torch.bfloat16,
         ),
-        sharding_strategy=ShardingStrategy.SHARD_GRAD_OP,
+        # 单机训练最佳策略
+        # sharding_strategy=ShardingStrategy.SHARD_GRAD_OP,
+        # process_group=get_dp_group(),
+        # 多机多卡训练最佳策略
+        sharding_strategy=ShardingStrategy.HYBRID_SHARD,
+        process_group=( get_shard_group(), get_replicate_group()),# 注意是 tuple
         ignored_modules=[target_model],
-        process_group=get_dp_group(),
+
     )
     print_with_rank("Initialized Eagle3 FSDP model")
 
