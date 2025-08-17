@@ -165,7 +165,6 @@ TEMPLATE_REGISTRY.register(
     ),
 )
 
-
 TEMPLATE_REGISTRY.register(
     name="gpt-oss",
     template=ChatTemplate(

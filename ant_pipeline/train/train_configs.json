@@ -1,0 +1,65 @@
+{
+    "1": 
+    {
+      "target_model_path": "/mnt/modelops/models/Qwen3-32B",
+      "draft_model_config": "qwen3-32b-eagle3.json",
+      "batch_size": 1,
+      "zero_stage": 1
+    },
+    "2": 
+    {
+      "target_model_path": "/mnt/modelops/models/Qwen3-8B",
+      "draft_model_config": "qwen3-8b-eagle3.json",
+      "batch_size": 6,
+      "zero_stage": 1
+    },
+    "3": 
+    {
+      "target_model_path": "/mnt/modelops/models/Qwen3-14B",
+      "draft_model_config": "qwen3-14b-eagle3.json",
+      "batch_size": 4,
+      "zero_stage": 1
+    },
+    "4": 
+    {
+      "target_model_path": "/mnt/modelops/models/Qwen2.5-72B",
+      "draft_model_config": "qwen2.5-72b-eagle3.json",
+      "batch_size": 2,
+      "zero_stage": 3
+    },
+    "5": 
+    {
+      "target_model_path": "/mnt/modelops/models/Qwen3-30B-A3B",
+      "draft_model_config": "qwen3-30B-A3b-eagle3.json",
+      "batch_size": 1,
+      "zero_stage": 1
+    },
+    "6": 
+    {
+      "target_model_path": "/mnt/modelops/models/Qwen3-235B-A22B-Instruct-2507",
+      "draft_model_config": "qwen3-235B-A22B-eagle3.json",
+      "batch_size": 1,
+      "zero_stage": 3
+    },
+    "7": 
+    {
+      "target_model_path": "/mnt/modelops/487922/deepseek-ai__DeepSeek-V2-Lite-Chat",
+      "draft_model_config": "deepseek-v2-lite-chat-eagle3.json",
+      "batch_size": 4,
+      "zero_stage": 1
+    },
+    "8": 
+    {
+      "target_model_path": "/mnt/modelops/models/QwQ-32B",
+      "draft_model_config": "qwq-32b-eagle3.json",
+      "batch_size": 2,
+      "zero_stage": 1
+    },
+    "9": 
+    {
+      "target_model_path": "/mnt/modelops/models/Qwen3-4B/",
+      "draft_model_config": "qwen3-4b-eagle3.json",
+      "batch_size": 12,
+      "zero_stage": 1
+    }
+}
