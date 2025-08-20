@@ -75,7 +75,7 @@ main() {
         $ROOT_DIR/scripts/train_eagle3_online_deepspeed.py \
         --target-model-path ${target_model_path} \
         --draft-model-config $ROOT_DIR/configs/qwen${model_tag}b-eagle3.json \
-        --train-data-path /mnt/modelops/487922/online_data/ultrachat/ultrachat_200k_sft.json \
+        --train-data-path /mnt/modelops/online_data/ultrachat/ultrachat_200k_sft.json \
         --output-dir $output_dir \
         --num-epochs 10 \
         --batch-size $bs \
