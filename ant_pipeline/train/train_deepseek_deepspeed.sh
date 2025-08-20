@@ -8,7 +8,7 @@ ROOT_DIR=$(dirname "$SCRIPT_DIR")/../
 # $1: nnodes, $2: nproc_per_node, $3: model_tag
 validate_arguments() {
     if [[ -z "$1" || -z "$2" || -z "$3" ]]; then
-        echo "Usage: $0 <nnodes> <nproc_per_node> <model_tag> <bs>"
+        echo "Usage: $0 <nnodes> <nproc_per_node> <target_model_path> <bs>"
         exit 1
     fi
 }
@@ -18,19 +18,20 @@ main() {
 
     local nnodes=$1
     local nproc_per_node=$2
-    local model_tag=$3
-    local bs=$4
+    # local model_tag=$3
+    # local bs=$4
 
     # 路径配置
     local SAVE_PATH=/mnt/modelops/train/eagle3/
-    local output_dir=${SAVE_PATH}/outputs/Qwen${model_tag}B-eagle3_nnodes_${nnodes}_ultrachat_train_all
+    local output_dir=${SAVE_PATH}/outputs/deepseek-V2-Lite-Chat-eagle3_nnodes_${nnodes}_ultrachat_train
     local log_dir=${SAVE_PATH}/logs
-    local base_log_prefix=${log_dir}/eagle3_qwen${model_tag}b_nnodes_${nnodes}_rank${RANK}_all
-    local log_path=${base_log_prefix}_train_all.log
-    local log_nccl_path=${base_log_prefix}_nccl_all.log
-    local log_nvidia_msi_path=${base_log_prefix}_nvidia_smi_all.log
-    local target_model_path=/mnt/modelops/models/Qwen${model_tag}B
-    local cache_dir=/mnt/modelops/train/eagle3/cache/Qwen${model_tag}B_ultrachat_all
+    local base_log_prefix=${log_dir}/eagle3_deepseek-${model_tag}_nnodes_${nnodes}_rank${RANK}
+    local log_path=${base_log_prefix}_train.log
+    local log_nccl_path=${base_log_prefix}_nccl.log
+    local log_nvidia_msi_path=${base_log_prefix}_nvidia_smi.log
+    local target_model_path=/mnt/modelops/487922/deepseek-ai__DeepSeek-V2-Lite-Chat
+    local cache_dir=/mnt/modelops/train/eagle3/cache/deepseek-V2-Lite-Chat_ultrachat
+    local bs=4
 
     # 创建目录
     mkdir -p $output_dir $log_dir
@@ -74,14 +75,14 @@ main() {
         --master_port=$MASTER_PORT \
         $ROOT_DIR/scripts/train_eagle3_online_deepspeed.py \
         --target-model-path ${target_model_path} \
-        --draft-model-config $ROOT_DIR/configs/qwen${model_tag}b-eagle3.json \
-        --train-data-path /mnt/modelops/487922/online_data/ultrachat/ultrachat_200k_sft.json \
+        --draft-model-config $ROOT_DIR/configs/deepseek-v2-lite-eagle3.json \
+        --train-data-path /mnt/modelops/datasets/specforge_postprocess_ultrachat/ultrachat.jsonl \
         --output-dir $output_dir \
         --num-epochs 10 \
         --batch-size $bs \
         --learning-rate 1e-4 \
         --max-length 2048 \
-        --chat-template qwen \
+        --chat-template deepseek \
         --cache-dir $cache_dir \
         --embedding-key model.embed_tokens.weight \
         --ttt-length 7 \
