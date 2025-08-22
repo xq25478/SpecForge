@@ -1,41 +1,119 @@
 import argparse
 import hashlib
 import os
+from tqdm import tqdm
 
 import torch
 import torch.distributed as dist
-from accelerate.utils import set_seed
-from datasets import load_dataset
-
-from tqdm import tqdm
-from transformers import (
-    AutoModelForCausalLM, 
-    AutoTokenizer
-)
-
-from specforge import (
-    AutoDraftModelConfig,
-    AutoEagle3DraftModel,
-    OnlineEagle3Model,
-)
-from specforge.data import (
-    build_eagle3_dataset,
-    generate_vocab_mapping_file,
-)
-
-from specforge.data.utils import DataCollatorWithPadding
-
-from specforge.utils import (
-    get_last_checkpoint,
-    print_with_rank,
-    rank_0_priority,
-)
-
-import deepspeed
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import DataLoader
 
-os.environ["TORCH_CUDA_ARCH_LIST"]="9.0"
+from accelerate.utils import set_seed
+from datasets import load_dataset
+
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers.integrations import HfDeepSpeedConfig
+
+from specforge import AutoDraftModelConfig, AutoEagle3DraftModel, OnlineEagle3Model
+from specforge.data import build_eagle3_dataset, generate_vocab_mapping_file
+from specforge.data.utils import DataCollatorWithPadding
+from specforge.utils import get_last_checkpoint, print_with_rank, rank_0_priority
+
+import deepspeed
+
+
+def get_zero_config(args,total_steps,warmup_steps):
+    zero_stages = {
+        "0":{
+            "zero_optimization": {
+                "stage": 0,
+                "allgather_partitions": True,
+                "allgather_bucket_size": 5e8,
+                "overlap_comm": False,
+                "reduce_scatter": True,
+                "reduce_bucket_size": 5e8,
+                "contiguous_gradients": True,
+                "round_robin_gradients": True
+            }
+        },
+        "1":{
+            "zero_optimization": {
+                "stage": 1,
+                "overlap_comm": True,
+                "allgather_partitions": True,
+                "reduce_scatter": True,
+                "contiguous_gradients": True
+            }
+        },
+        "2":{
+            "zero_optimization": {
+                "stage": 2,
+                "overlap_comm": True,
+                "contiguous_gradients": True,
+                "reduce_scatter": True,
+                "reduce_bucket_size": 5e8,
+                "round_robin_gradients":True,
+                "allgather_partitions": True
+            }
+        },
+        "3":{
+            "zero_optimization": {
+                "stage": 3,
+                # "offload_param":{
+                #     "device": "cpu",
+                #     "pin_memory": True,
+                #     "max_in_cpu": 1e9
+                # },
+                # "offload_optimizer":{
+                #     "device": "cpu",
+                #     "pin_memory": True
+                # },
+                "overlap_comm": True,
+                "allgather_partitions": True,
+                "reduce_scatter": True,
+                "contiguous_gradients": True,
+                "stage3_max_live_parameters" : 1e9,
+                "stage3_param_persistence_threshold": "auto",
+                "reduce_bucket_size": "auto",
+                "sub_group_size": 1e9,
+                "stage3_max_reuse_distance" : 1e9,
+                "stage3_prefetch_bucket_size" : 5e8,
+                "stage3_gather_16bit_weights_on_model_save":True
+            }
+        }
+    }
+    ds_config = { 
+        "train_micro_batch_size_per_gpu": args.batch_size,
+        "gradient_accumulation_steps": args.gradient_accumulation_steps,
+        "bf16": {
+            "enabled": True
+        },
+        "fp16": {
+            "enabled": False
+        },
+        "optimizer": {
+        "type": "AdamW",
+        "params": {
+            "lr": args.learning_rate,
+            "weight_decay": 0.01,
+            "betas": [0.9, 0.95]
+        }
+        },
+        "scheduler": {
+        "type": "WarmupDecayLR",
+        "params": {
+            "total_num_steps": total_steps,
+            "warmup_num_steps": warmup_steps,
+            "warmup_min_lr":0,
+            "warmup_max_lr": args.learning_rate
+            }
+        },
+        **zero_stages[str(args.zero_stage)],
+        "communication_data_type": "bf16"
+    }
+
+    return ds_config
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train Eagle3 with online data")
@@ -89,6 +167,7 @@ def parse_args():
     # deepspeed
     parser.add_argument("--local_rank", type=int, default=0) 
     parser.add_argument("--gradient-accumulation-steps", type=int, default=1) 
+    parser.add_argument("--zero-stage", type=int, default=3) 
 
     args = parser.parse_args()
 
@@ -104,7 +183,7 @@ def main():
     # initialize
     args = parse_args()
     set_seed(args.seed)
-    
+
     deepspeed.init_distributed()
 
     local_rank = int(os.getenv("LOCAL_RANK",0))
@@ -114,10 +193,6 @@ def main():
     torch.cuda.set_device(local_rank)
     print_with_rank(f"WORLD SIZE={world_size}-RANK={rank}-LOCAL_WORLD_SIZE={local_world_size}-LOCAL RANK={local_rank}")
     print("Initialized distributed environment")
-
-    # build target and draft model
-    target_model = AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path=args.target_model_path,torch_dtype=torch.bfloat16,device_map="cpu").eval()
-    print_with_rank("Initialized target model")
 
     draft_model_last_checkpoint = None
     if args.resume and os.path.isdir(args.output_dir):
@@ -132,7 +207,7 @@ def main():
             AutoEagle3DraftModel.from_pretrained(
                 draft_model_last_checkpoint, attention_backend=args.attention_backend
             )
-            .cpu()
+            .cuda()
             .to(torch.bfloat16)
         )
     else:
@@ -140,7 +215,7 @@ def main():
             AutoEagle3DraftModel.from_config(
                 draft_model_config, attention_backend=args.attention_backend
             )
-            .cpu()
+            .cuda()
             .to(torch.bfloat16)
         )
     
@@ -193,7 +268,7 @@ def main():
         train_eagle3_dataset,
         batch_size=args.batch_size,
         sampler=train_sampler,
-        num_workers=4,
+        num_workers=8,
         pin_memory=True,
         drop_last=False,
         collate_fn=DataCollatorWithPadding(),
@@ -204,79 +279,25 @@ def main():
     warmup_steps = int(total_steps * args.warmup_ratio)
     print_with_rank("Initialized train dataloader")
 
+    ds_config = get_zero_config(args,total_steps,warmup_steps)
+    dschf = HfDeepSpeedConfig(ds_config)  # keep this object alive
+    target_model = AutoModelForCausalLM.from_pretrained(args.target_model_path, torch_dtype=torch.bfloat16)
+    for _, param in target_model.named_parameters():
+        param.requires_grad = False
+    print_with_rank("Initialized target model")
+
     eagle3_model = OnlineEagle3Model(
-        target_model=target_model,
-        draft_model=draft_model,
-        length=args.ttt_length,
-        attention_backend=args.attention_backend,
+        target_model= target_model,
+        draft_model = draft_model,
+        length = args.ttt_length,
+        attention_backend = args.attention_backend,
     )
-
-    for _, param in eagle3_model.target_model.named_parameters():
-      param.requires_grad = False
     print_with_rank("Initialized Eagle3 model")
-
-    ds_config = { 
-        "train_micro_batch_size_per_gpu": args.batch_size,
-        "gradient_accumulation_steps": args.gradient_accumulation_steps,
-        "bf16": {
-        "enabled": True
-        },
-        "fp16": {
-        "enabled": False
-        },
-        "optimizer": {
-        "type": "AdamW",
-        "params": {
-            "lr": args.learning_rate,
-            "weight_decay": 0.01,
-            "betas": [0.9, 0.95]
-        }
-        },
-        "scheduler": {
-        "type": "WarmupDecayLR",
-        "params": {
-            "total_num_steps": total_steps,
-            "warmup_num_steps": warmup_steps,
-            "warmup_min_lr":0,
-            "warmup_max_lr": args.learning_rate
-        }
-        },
-
-        # Zero1
-        "zero_optimization": {
-            "stage": 1,
-            "overlap_comm": True,
-            "allgather_partitions": True,
-            "reduce_scatter": True,
-            "contiguous_gradients": True
-        },
-
-        # Zero2
-        # "zero_optimization": {
-            # "stage": 2,
-            # "overlap_comm": True,
-            # "contiguous_gradients": True,
-            # "reduce_scatter": True,
-        # },
-
-        # Zero3
-        # "zero_optimization": {
-        #     "stage": 3,
-        #     "overlap_comm": True,
-        #     "allgather_partitions": True,
-        #     "reduce_scatter": True,
-        #     "contiguous_gradients": True,
-        #     "stage3_max_live_parameters" : 1e9,
-        #     "stage3_max_reuse_distance" : 1e9,
-        #     "stage3_prefetch_bucket_size" : 5e8
-        #   },
-        "communication_data_type": "bf16"
-    }
-
+    
     model_engine, optimizer, _, scheduler = deepspeed.initialize(
         model=eagle3_model,
         config=ds_config,
-        model_parameters=eagle3_model.draft_model.parameters(),
+        model_parameters=eagle3_model.draft_model.parameters()
     )
     print_with_rank("Initialized Eagle3 DeepSpeed model")
 
@@ -292,10 +313,6 @@ def main():
         if os.path.exists(state_path):
             state = torch.load(state_path, map_location="cpu", weights_only=False)
 
-            # 注意：Deepspeed 会自动恢复 optimizer 和 scheduler
-            # 但我们仍可以手动 load（如果没在 checkpoint 中）
-            # model_engine.load_checkpoint 已经可以恢复 optimizer/scheduler
-            # 这里先手动 load 以兼容原逻辑
             try:
                 model_engine.optimizer.load_state_dict(state["optimizer_state_dict"])
                 print_on_rank0("Successfully loaded optimizer state_dict.")
