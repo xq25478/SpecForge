@@ -22,7 +22,7 @@ main() {
     # local bs=$4
 
     # 路径配置
-    local SAVE_PATH=/mnt/modelops/train/eagle3/
+    local SAVE_PATH=/mnt/modelops/train/eagle3/out/
     local output_dir=${SAVE_PATH}/outputs/deepseek-V2-Lite-Chat-eagle3_nnodes_${nnodes}_ultrachat_train
     local log_dir=${SAVE_PATH}/logs
     local base_log_prefix=${log_dir}/eagle3_deepseek-${model_tag}_nnodes_${nnodes}_rank${RANK}

@@ -18,19 +18,19 @@ main() {
 
     local nnodes=$1
     local nproc_per_node=$2
-    local model_tag=3-30B-A3
-    local bs=6
+    local model_tag=3-32
+    local bs=2
 
     # 路径配置
-    local SAVE_PATH=/mnt/modelops/train/eagle3/out/
-    local output_dir=${SAVE_PATH}/outputs/Qwen${model_tag}B-eagle3_nnodes_${nnodes}_ultrachat_train
+    local SAVE_PATH=/mnt/modelops/train/eagle3/487922/
+    local output_dir=${SAVE_PATH}/outputs/QwQ-32B-eagle3_nnodes_${nnodes}_ultrachat_train
     local log_dir=${SAVE_PATH}/logs
-    local base_log_prefix=${log_dir}/eagle3_qwen${model_tag}b_nnodes_${nnodes}_rank${RANK}
+    local base_log_prefix=${log_dir}/eagle3_QwQ-32b_nnodes_${nnodes}_rank${RANK}
     local log_path=${base_log_prefix}_train.log
     local log_nccl_path=${base_log_prefix}_nccl.log
     local log_nvidia_msi_path=${base_log_prefix}_nvidia_smi.log
-    local target_model_path=/mnt/modelops/models/Qwen${model_tag}B
-    local cache_dir=/mnt/modelops/train/eagle3/cache/Qwen${model_tag}B_ultrachat
+    local target_model_path=/mnt/modelops/models/QwQ-32B
+    local cache_dir=/mnt/modelops/train/eagle3/cache/QwQ-32B_ultrachat
 
     # 创建目录
     mkdir -p $output_dir $log_dir
@@ -74,7 +74,7 @@ main() {
         --master_port=$MASTER_PORT \
         $ROOT_DIR/scripts/train_eagle3_online_deepspeed.py \
         --target-model-path ${target_model_path} \
-        --draft-model-config $ROOT_DIR/configs/qwen${model_tag}b-eagle3.json \
+        --draft-model-config $ROOT_DIR/configs/qwq-32b-eagle3.json \
         --train-data-path /mnt/modelops/datasets/specforge_postprocess_ultrachat/ultrachat.jsonl \
         --output-dir $output_dir \
         --num-epochs 10 \

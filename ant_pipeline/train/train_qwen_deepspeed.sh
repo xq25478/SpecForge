@@ -22,15 +22,15 @@ main() {
     local bs=$4
 
     # 路径配置
-    local SAVE_PATH=/mnt/modelops/train/eagle3/
+    local SAVE_PATH=/mnt/modelops/train/eagle3/out/
     local output_dir=${SAVE_PATH}/outputs/Qwen${model_tag}B-eagle3_nnodes_${nnodes}_ultrachat_train_all
-    local log_dir=${SAVE_PATH}/logs
+    local log_dir=${SAVE_PATH}/logs_1
     local base_log_prefix=${log_dir}/eagle3_qwen${model_tag}b_nnodes_${nnodes}_rank${RANK}_all
     local log_path=${base_log_prefix}_train_all.log
     local log_nccl_path=${base_log_prefix}_nccl_all.log
     local log_nvidia_msi_path=${base_log_prefix}_nvidia_smi_all.log
     local target_model_path=/mnt/modelops/models/Qwen${model_tag}B
-    local cache_dir=/mnt/modelops/train/eagle3/cache/Qwen${model_tag}B_ultrachat_all
+    local cache_dir=/mnt/modelops/train/eagle3/cache/Qwen${model_tag}B_ultrachat
 
     # 创建目录
     mkdir -p $output_dir $log_dir
@@ -75,7 +75,7 @@ main() {
         $ROOT_DIR/scripts/train_eagle3_online_deepspeed.py \
         --target-model-path ${target_model_path} \
         --draft-model-config $ROOT_DIR/configs/qwen${model_tag}b-eagle3.json \
-        --train-data-path /mnt/modelops/487922/online_data/ultrachat/ultrachat_200k_sft.json \
+        --train-data-path /mnt/modelops/train/eagle3/baseline_ultrachat_sft_train_only/data/ultrachat_sft_train.jsonl \
         --output-dir $output_dir \
         --num-epochs 10 \
         --batch-size $bs \
@@ -90,4 +90,6 @@ main() {
     echo "Training completed successfully. Output saved to $output_dir"
 }
 
-main "$@"
+main "$@" 
+
+echo 'end train'
