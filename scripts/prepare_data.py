@@ -126,7 +126,8 @@ def main():
     args = parse_args()
     # load dataset
     if args.dataset == "ultrachat":
-        ds = load_dataset("HuggingFaceH4/ultrachat_200k")["train_sft"]
+        dataset_path = args.data_path if args.data_path is not None else "HuggingFaceH4/ultrachat_200k/"
+        ds = load_dataset(dataset_path)["train_sft"]
         proc_fn = process_ultrachat_row
     elif args.dataset == "sharegpt":
         if args.data_path is None:
