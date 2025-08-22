@@ -90,6 +90,4 @@ main() {
     echo "Training completed successfully. Output saved to $output_dir"
 }
 
-main "$@" 
-
-echo 'end train'
+main "$@"
