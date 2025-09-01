@@ -11,3 +11,4 @@ psutil
 numpy
 accelerate
 pydantic
+deepspeed==0.17.5
