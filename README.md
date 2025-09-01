@@ -120,7 +120,11 @@ You need to specify the following arguments:
 
 ### 🤩 Prepare your own dataset
 
-Besides the provided ShareGPT/Ultrachat datasets, you can also prepare your own dataset. You should prepare the dataset in jsonl format and the schema should look like this:
+Besides the provided ShareGPT/Ultrachat datasets, you can also prepare your own dataset. We support two formats:
+
+#### Option 1: Conversation Format
+
+You should prepare the dataset in jsonl format and the schema should look like this:
 
 ```json
 {
@@ -132,6 +136,30 @@ Besides the provided ShareGPT/Ultrachat datasets, you can also prepare your own 
         }
     ],
 }
+```
+
+#### Option 2: Pre-formatted Text Format
+
+If you already have conversations formatted with a specific chat template, you can use the pre-formatted text directly:
+
+```json
+{
+    "id": "xxxx",
+    "text": "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\nHello<|im_end|>\n<|im_start|>assistant\nHi there!<|im_end|>\n"
+}
+```
+
+This format is useful when you have pre-formatted prompts that were used during training of the target model and have raw generations from the target model.
+
+To use pre-formatted datasets, add the `--is-preformatted` flag to your training command. Note that the `--chat-template` parameter is still needed and should match the template used in your pre-formatted text, as it is used to identify user/assistant tokens to determine the assistant spans and generate the corresponding loss mask.
+
+```bash
+torchrun --standalone --nproc_per_node 8 \
+    scripts/train_eagle3_online.py \
+    --is-preformatted \
+    --chat-template qwen \
+    --train-data-path ./your_preformatted_dataset.jsonl \
+    # ... other arguments
 ```
 
 Once you have the `jsonl` file ready, you can go straight for online training or hidden states generation for offline training.
@@ -256,7 +284,7 @@ When `tp_size` is greater than 1, the script will automatically load the distrib
 
 #### Customize Draft Model
 
-If you want to change the draft model configuration, you can write your own configuration file and pass its path to the `--draft-model-config` argument. If you wish to serve your customized draft model with SGLang, make sure you implement the draft model in SGLang as well and the architecture name must match. To implement your own draft model, you can create a new class and inherit it from the `Eagle3DraftModel` class in the `specforge.modeling.draft.base.py` file.
+If you want to change the draft model configuration, you can write your own configuration file and pass its path to the `--draft-model-config` argument. Or, if you do not provide the `--draft-model-config` argument, the script will automatically generate the draft model configuration based on the target model configuration. If you wish to serve your customized draft model with SGLang, make sure you implement the draft model in SGLang as well and the architecture name must match. To implement your own draft model, you can create a new class and inherit it from the `Eagle3DraftModel` class in the `specforge.modeling.draft.base.py` file.
 
 
 ```python
