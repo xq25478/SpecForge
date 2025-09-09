@@ -86,10 +86,10 @@ def random_sample_jsonl(input_file, output_file, sample_size):
 if __name__ == "__main__":
     # 划分中文数据集
     # convert_json_file(
-    #     input_json_path='/mnt/modelops/487922/dataset/dialog_release.json',       # 输入的原始 JSON 文件
-    #     train_txt_path='/mnt/modelops/487922/dataset/train.txt',         # 包含 dialog_id 的训练集 ID 列表
-    #     train_jsonl_path='/mnt/modelops/487922/dataset/train.jsonl',     # 输出训练集（JSONL 格式）
-    #     val_jsonl_path='/mnt/modelops/487922/dataset/test.jsonl'          # 输出验证集（JSONL 格式）
+    #     input_json_path='/mnt/modelops/dataset/dialog_release.json',       # 输入的原始 JSON 文件
+    #     train_txt_path='/mnt/modelops/dataset/train.txt',         # 包含 dialog_id 的训练集 ID 列表
+    #     train_jsonl_path='/mnt/modelops/dataset/train.jsonl',     # 输出训练集（JSONL 格式）
+    #     val_jsonl_path='/mnt/modelops/dataset/test.jsonl'          # 输出验证集（JSONL 格式）
     # )
 
     # 划分ultrachat19375条
