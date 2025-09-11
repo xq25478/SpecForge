@@ -92,5 +92,8 @@ if __name__ == "__main__":
     #     val_jsonl_path='/mnt/modelops/dataset/test.jsonl'          # 输出验证集（JSONL 格式）
     # )
 
-    # 划分ultrachat19375条
-    random_sample_jsonl('/mnt/modelops/train/eagle3/baseline_ultrachat_sft_train_only/data/ultrachat_sft_train.jsonl', '/mnt/modelops/487922/dataset/ultrachat_sampled_77500.jsonl', 77500)
+    # 划分ultrachat19375*倍率条，可以用cat合并数据
+    num = 19375
+    ratio = 4
+    all_num = ratio * num
+    random_sample_jsonl('/mnt/modelops/train/eagle3/baseline_ultrachat_sft_train_only/data/ultrachat_sft_train.jsonl', '/mnt/modelops/487922/dataset/ultrachat_sampled_{}.jsonl'.format(all_num), all_num)
